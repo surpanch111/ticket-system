@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket Management Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8; --accent: #3b82f6; --border: #334155; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 20px; }
+    .container { max-width: 800px; margin: auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .field { margin-bottom: 12px; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+    input, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #0b1120; color: #fff; }
+    button { cursor: pointer; padding: 10px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-weight: bold; }
+    .btn-secondary { background: #475569; }
+    .ticket { background: #0b1120; border: 1px solid var(--border); border-radius: 6px; padding: 14px; margin-bottom: 10px; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; }
+    .badge-open { background: #f59e0b; color: #000; }
+    .badge-in_progress { background: #3b82f6; color: #fff; }
+    .badge-closed { background: #64748b; color: #fff; }
+    .hidden { display: none !important; }
+    .msg { margin-top: 8px; font-size: 0.85rem; }
+    .err { color: #ef4444; }
+    .ok { color: #10b981; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h2>🎫 Ticket Dashboard</h2>
+    <button id="logoutBtn" class="btn-secondary hidden" onclick="logout()">Logout</button>
+  </header>
+
+  <div id="authView" class="card">
+    <h3 id="authTitle" style="margin-bottom: 12px;">Login</h3>
+    <div class="field">
+      <label>Email / Username</label>
+      <input type="text" id="authEmail" placeholder="user@example.com">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="authPass" placeholder="••••••••">
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button id="authBtn" onclick="submitAuth()">Sign In</button>
+      <button class="btn-secondary" id="toggleBtn" onclick="toggleAuth()">Create an Account</button>
+    </div>
+    <p id="authMsg" class="msg"></p>
+  </div>
+
+  <div id="dashView" class="hidden">
+    <div class="card">
+      <h3 style="margin-bottom: 12px;">Create New Ticket</h3>
+      <div class="field">
+        <label>Title</label>
+        <input type="text" id="tTitle" placeholder="Issue summary">
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <textarea id="tDesc" rows="3" placeholder="Explain the problem..."></textarea>
+      </div>
+      <button onclick="createTicket()">Create Ticket</button>
+      <p id="tMsg" class="msg"></p>
+    </div>
+
+    <h3 style="margin-bottom: 12px;">Your Tickets</h3>
+    <div id="ticketsList"></div>
+  </div>
+</div>
+
+<script>
+  let token = localStorage.getItem("token") || "";
+  let isReg = false;
+
+  function render() {
+    if (token) {
+      document.getElementById("authView").classList.add("hidden");
+      document.getElementById("dashView").classList.remove("hidden");
+      document.getElementById("logoutBtn").classList.remove("hidden");
+      loadTickets();
+    } else {
+      document.getElementById("authView").classList.remove("hidden");
+      document.getElementById("dashView").classList.add("hidden");
+      document.getElementById("logoutBtn").classList.add("hidden");
+    }
+  }
+
+  function toggleAuth() {
+    isReg = !isReg;
+    document.getElementById("authTitle").innerText = isReg ? "Register Account" : "Login";
+    document.getElementById("authBtn").innerText = isReg ? "Sign Up" : "Sign In";
+    document.getElementById("toggleBtn").innerText = isReg ? "Already registered? Login" : "Create an Account";
+    document.getElementById("authMsg").innerText = "";
+  }
+
+  async function submitAuth() {
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPass").value.trim();
+    const msg = document.getElementById("authMsg");
+    msg.className = "msg"; msg.innerText = "";
+
+    const endpoint = isReg ? "/auth/register" : "/auth/login";
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      msg.innerText = data.error || "Request failed";
+      msg.classList.add("err");
+      return;
+    }
+
+    if (isReg) {
+      msg.innerText = "Registered successfully! You can now log in.";
+      msg.classList.add("ok");
+      toggleAuth();
+    } else {
+      token = data.token;
+      localStorage.setItem("token", token);
+      render();
+    }
+  }
+
+  function logout() {
+    token = "";
+    localStorage.removeItem("token");
+    render();
+  }
+
+  async function loadTickets() {
+    const list = document.getElementById("ticketsList");
+    const res = await fetch("/tickets", {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (res.status === 401) { logout(); return; }
+    const tickets = await res.json();
+
+    list.innerHTML = "";
+    if (tickets.length === 0) {
+      list.innerHTML = `<p style="color:var(--muted)">No tickets found.</p>`;
+      return;
+    }
+
+    tickets.forEach(t => {
+      let btn = "";
+      if (t.status === "open") {
+        btn = `<button style="margin-top:8px;" onclick="changeStatus(${t.id}, 'in_progress')">Move to In Progress</button>`;
+      } else if (t.status === "in_progress") {
+        btn = `<button style="margin-top:8px;" class="btn-secondary" onclick="changeStatus(${t.id}, 'closed')">Close Ticket</button>`;
+      } else {
+        btn = `<span style="display:block;margin-top:8px;font-size:0.8rem;color:var(--muted)">Closed (Immutable)</span>`;
+      }
+
+      const item = document.createElement("div");
+      item.className = "ticket";
+      item.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h4>#${t.id} ${t.title}</h4>
+          <span class="badge badge-${t.status}">${t.status}</span>
+        </div>
+        <p style="color:var(--muted);font-size:0.9rem;margin:6px 0;">${t.description}</p>
+        ${btn}
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  async function createTicket() {
+    const title = document.getElementById("tTitle").value.trim();
+    const description = document.getElementById("tDesc").value.trim();
+    const res = await fetch("/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ title, description })
+    });
+    if (res.ok) {
+      document.getElementById("tTitle").value = "";
+      document.getElementById("tDesc").value = "";
+      loadTickets();
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to create ticket");
+    }
+  }
+
+  async function changeStatus(id, nextStatus) {
+    const res = await fetch(`/tickets/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ status: nextStatus })
+    });
+    if (res.ok) {
+      loadTickets();
+    } else {
+      const data = await res.json();
+      alert(data.error || "Status transition blocked");
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>
