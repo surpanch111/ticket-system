@@ -26,6 +26,25 @@ A REST backend service and embedded single-page UI built in Go and SQLite for ma
 - Tickets marked `closed` cannot be edited or reopened.
 - Users can only view and update their own tickets.
 
+## 📐 Architecture & Lifecycle Design
+
+### Ticket Status State Machine
+```text
+  [ Create Ticket ]
+         │
+         ▼
+     ┌────────┐
+     │  open  │ ──(PATCH /tickets/{id}/status)──► ┌─────────────┐
+     └────────┘                                    │ in_progress │
+                                                   └─────────────┘
+                                                          │
+                                            (PATCH /tickets/{id}/status)
+                                                          │
+                                                          ▼
+                                                   ┌─────────────┐
+                                                   │   closed    │ ──► [ Terminal State: Immutable ]
+                                                   └─────────────┘
+
 ## 💻 Local Commands
 ```bash
 # Direct Run
