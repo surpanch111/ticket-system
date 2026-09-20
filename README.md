@@ -34,3 +34,24 @@ go run main.go
 # Docker Run
 docker build -t ticket-system .
 docker run -p 8080:8080 ticket-system
+
+# Request Flow & Security Pipeline
+Incoming HTTP Request
+       │
+       ▼
+[ Router (net/http ServeMux) ]
+       │
+       ▼
+[ Middleware: Authenticate ]
+       ├── Missing / Invalid Header ──► 401 Unauthorized
+       └── Valid Bearer JWT
+                 │
+                 ▼
+         Inject UserID into Context
+                 │
+                 ▼
+          [ HTTP Handler ]
+                 │
+                 ├── Validate Input JSON
+                 ├── Enforce Ownership Check (ticket.user_id == ctx.user_id) ──► 403 Forbidden
+                 └── Database Transaction (SQLite)
