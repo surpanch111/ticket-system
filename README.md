@@ -36,8 +36,6 @@ The application includes the following security mechanisms:
 - Validation of ticket status transitions
 - Protection against unauthorized access to other users' tickets
 
-> Document additional protections only if they are implemented and tested.
-
 ---
 
 ## 📐 Architecture & Lifecycle Design
