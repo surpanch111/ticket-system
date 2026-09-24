@@ -26,6 +26,20 @@ A REST backend service and embedded single-page UI built in Go and SQLite for ma
 - Tickets marked `closed` cannot be edited or reopened.
 - Users can only view and update their own tickets.
 
+## 🔒 Security Considerations
+
+The application includes the following security mechanisms:
+
+- JWT authentication for protected routes
+- Password hashing using Bcrypt
+- Ownership validation for ticket access
+- Validation of ticket status transitions
+- Protection against unauthorized access to other users' tickets
+
+> Document additional protections only if they are implemented and tested.
+
+---
+
 ## 📐 Architecture & Lifecycle Design
 
 ### Ticket Status State Machine
